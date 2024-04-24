@@ -61,17 +61,34 @@ cache_hierarchy = PrivateL1PrivateL2WalkCacheHierarchy(
     l1d_size="32KiB", l1i_size="32KiB", l2_size="512KiB"
 )
 
+# Setup the cache hierarchy with CHI protocol
+from gem5.components.cachehierarchies.chi.private_l1_cache_hierarchy import (
+    PrivateL1CacheHierarchy,
+)
+
+cache_hierarchy = PrivateL1CacheHierarchy(
+    size="64kB",
+    assoc=4,
+)
+
+# Setup the cache hierarchy with MI protocol
+# from gem5.components.cachehierarchies.ruby.mi_example_cache_hierarchy import (
+#     MIExampleCacheHierarchy,
+# )
+
+# cache_hierarchy = MIExampleCacheHierarchy(size="32kB", assoc=4)
+
 # Setup the system memory.
 memory = SingleChannelDDR3_1600()
 
 # Setup a single core Processor.
 processor = SimpleProcessor(
-    cpu_type=CPUTypes.TIMING, isa=ISA.RISCV, num_cores=1
+    cpu_type=CPUTypes.TIMING, isa=ISA.RISCV, num_cores=2
 )
 
 # Setup the board.
 board = RiscvBoard(
-    clk_freq="1GHz",
+    clk_freq="3GHz",
     processor=processor,
     memory=memory,
     cache_hierarchy=cache_hierarchy,

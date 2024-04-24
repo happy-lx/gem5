@@ -3664,7 +3664,7 @@ action(Profile_Miss, desc="") {
     cache.profilePrefetchMiss();
   }
   // notify prefetcher about this demand miss
-  if (use_prefetcher && tbe.isSeqReqValid && (is_demand || is_remote_can_notify)) {
+  if (use_prefetcher && !isAtomicReqType(tbe.reqType) && tbe.isSeqReqValid && (is_demand || is_remote_can_notify)) {
     bool is_read := false;
     if (isReadReqType(tbe.reqType)) {
       is_read := true;
@@ -3691,7 +3691,7 @@ action(Profile_Hit, desc="") {
     cache.profilePrefetchHit();
   }
   // notify prefetcher about this demand hit
-  if (use_prefetcher && tbe.isSeqReqValid && (is_demand || is_remote_can_notify)) {
+  if (use_prefetcher && !isAtomicReqType(tbe.reqType) && tbe.isSeqReqValid && (is_demand || is_remote_can_notify)) {
     bool is_read := false;
     if (isReadReqType(tbe.reqType)) {
       is_read := true;

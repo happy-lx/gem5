@@ -32,6 +32,7 @@ from m5.objects import (
     RubyPortProxy,
     RubySequencer,
     RubySystem,
+    StridePrefetcher,
 )
 from m5.objects.SubSystem import SubSystem
 
@@ -154,6 +155,7 @@ class PrivateL1CacheHierarchy(AbstractRubyCacheHierarchy):
             cache_line_size=board.get_cache_line_size(),
             target_isa=board.get_processor().get_isa(),
             clk_domain=board.get_clock_domain(),
+            prefetcher=StridePrefetcher(degree=8, latency=1, prefetch_on_access=True),
         )
         cluster.icache = PrivateL1MOESICache(
             size=self._size,

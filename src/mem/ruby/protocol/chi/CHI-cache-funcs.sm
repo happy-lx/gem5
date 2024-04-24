@@ -1203,6 +1203,14 @@ bool isWriteReqType(CHIRequestType type) {
   return false;
 }
 
+bool isAtomicReqType(CHIRequestType type) {
+  if (type == CHIRequestType:AtomicLoad ||
+      type == CHIRequestType:AtomicStore) {
+    return true;
+  }
+  return false;
+}
+
 bool isStashReqType(CHIRequestType type) {
   if (type == CHIRequestType:StashOnceShared ||
       type == CHIRequestType:StashOnceUnique) {
