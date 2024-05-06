@@ -211,6 +211,27 @@ class StridePrefetcher(QueuedPrefetcher):
         RandomRP(), "Replacement policy of the PC table"
     )
 
+class StreamPrefetcher(QueuedPrefetcher):
+    type = "StreamPrefetcher"
+    cxx_class = "gem5::prefetch::Stream"
+    cxx_header = "mem/cache/prefetch/stream.hh"
+
+    # Do not consult Stream prefetcher on instruction accesses
+    on_inst = False
+    use_virtual_addresses = Param.Bool(True, "use Virtual address stream or not")
+    
+    region_size = Param.MemorySize("1KiB", "The size of the region")
+    active_threshold = Param.Percent(
+        75,
+        "Min. threshold to become an active region"
+    )
+
+    degree = Param.Int(4, "Number of prefetches to generate")
+    distance = Param.Unsigned(
+        32,
+        "How far ahead of the demand stream to start prefetching. "
+    )
+    bit_vector_entry = Param.Int(16, "Number of BitVector Entry")
 
 class TaggedPrefetcher(QueuedPrefetcher):
     type = "TaggedPrefetcher"

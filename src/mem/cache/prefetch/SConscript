@@ -29,7 +29,7 @@
 Import('*')
 
 SimObject('Prefetcher.py', sim_objects=[
-    'BasePrefetcher', 'MultiPrefetcher', 'QueuedPrefetcher',
+    'BasePrefetcher', 'MultiPrefetcher', 'QueuedPrefetcher', 'StreamPrefetcher',
     'StridePrefetcherHashedSetAssociative', 'StridePrefetcher',
     'TaggedPrefetcher', 'IndirectMemoryPrefetcher', 'SignaturePathPrefetcher',
     'SignaturePathPrefetcherV2', 'AccessMapPatternMatching', 'AMPMPrefetcher',
@@ -53,3 +53,6 @@ Source('slim_ampm.cc')
 Source('spatio_temporal_memory_streaming.cc')
 Source('stride.cc')
 Source('tagged.cc')
+Source('stream.cc')
+
+DebugFlag('StreamFlag')
