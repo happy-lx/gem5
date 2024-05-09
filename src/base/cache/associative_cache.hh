@@ -72,8 +72,9 @@ class AssociativeCache : public Named
     void
     initParams(size_t _num_entries, size_t _assoc)
     {
-        fatal_if((_num_entries % _assoc) != 0, "The number of entries of an "
-                 "AssociativeCache<> must be a multiple of its associativity");
+        fatal_if((_num_entries % _assoc) != 0, \
+        "The number of entries of an AssociativeCache<%s> must be a multiple of its associativity", \
+        name());
         for (auto entry_idx = 0; entry_idx < _num_entries; entry_idx++) {
             Entry *entry = &entries[entry_idx];
             indexingPolicy->setEntry(entry, entry_idx);

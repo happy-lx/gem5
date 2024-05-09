@@ -68,6 +68,25 @@
 namespace gem5
 {
 
+enum PrefetchSourceType
+{
+    PF_NONE = 0,
+    SStream,
+    SStride,
+    SPht,
+    HWP_BOP,
+    SPP,
+    CMC,
+    IPCP,
+    IPCP_CS,
+    IPCP_CPLX,
+    Berti,
+    StoreStream,
+    CDP,
+    SOpt,
+    NUM_PF_SOURCES
+};
+
 /**
  * Special TaskIds that are used for per-context-switch stats dumps
  * and Cache Occupancy. Having too many tasks seems to be a problem

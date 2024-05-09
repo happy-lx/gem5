@@ -129,6 +129,8 @@ class Base : public ClockedObject
         bool cacheMiss;
         /** Pointer to the associated request data */
         uint8_t *data;
+        /** Whether hit a prefetched cache block */
+        bool prefetchHit;
 
       public:
         /**
@@ -196,6 +198,14 @@ class Base : public ClockedObject
             return write;
         }
 
+        // is come from store prefetch train trigger
+        bool isStore() const
+        {
+            // return storePFTrain;
+            // disable Store prefetch
+            return false;
+        }
+
         /**
          * Gets the physical address of the request
          * @return physical address of the request
@@ -213,6 +223,14 @@ class Base : public ClockedObject
         {
             return cacheMiss;
         }
+
+        void setPfHit(bool hit) { prefetchHit = hit; }
+
+        // TODO: distinguish These two
+        bool isPfHit() const { return prefetchHit; }
+        bool isPfFirstHit() const { return prefetchHit; }
+        
+        bool isEverPrefetched() const { return isPfHit(); }
 
         /**
          * Gets the associated data of the request triggering the event
@@ -294,6 +312,8 @@ class Base : public ClockedObject
     /** Consult prefetcher on reads? */
     const bool onRead;
 
+    const bool isSubPrefetcher;
+
     /** Consult prefetcher on reads? */
     const bool onWrite;
 
@@ -316,6 +336,8 @@ class Base : public ClockedObject
 
     /** Use Virtual Addresses for prefetching */
     const bool useVirtualAddresses;
+
+    const unsigned maxCacheLevel;
 
     /**
      * Determine if this access should be observed
@@ -372,6 +394,9 @@ class Base : public ClockedObject
     uint64_t issuedPrefetches;
     /** Total prefetches that has been useful */
     uint64_t usefulPrefetches;
+
+    // TODO: accumulate this when observing late prefetch of stream
+    uint64_t streamlatenum;
 
     /** Registered mmu for address translations */
     BaseMMU * mmu;

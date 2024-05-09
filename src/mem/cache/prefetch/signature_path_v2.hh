@@ -50,6 +50,7 @@ namespace gem5
 
 struct SignaturePathPrefetcherV2Params;
 
+GEM5_DEPRECATED_NAMESPACE(Prefetcher, prefetch);
 namespace prefetch
 {
 
@@ -66,7 +67,7 @@ class SignaturePathV2 : public SignaturePath
                                delta(0) {}
     };
     /** Global History Register */
-    AssociativeCache<GlobalHistoryEntry> globalHistoryRegister;
+    AssociativeSet<GlobalHistoryEntry> globalHistoryRegister;
 
     double calculateLookaheadConfidence(PatternEntry const &sig,
             PatternStrideEntry const &lookahead) const override;
@@ -85,8 +86,8 @@ class SignaturePathV2 : public SignaturePath
      * In this version of the Signature Path Prefetcher, there is no auxiliary
      * prefetcher, so this function does not perform any actions.
      */
-    void auxiliaryPrefetcher(Addr ppn, stride_t current_block, bool is_secure,
-            std::vector<AddrPriority> &addresses) override
+    void auxiliaryPrefetcher(Addr ppn, stride_t current_block, bool is_secure, std::vector<AddrPriority> &addresses,
+                             boost::compute::detail::lru_cache<Addr, Addr> &filter) override
     {}
 
     virtual void handlePageCrossingLookahead(signature_t signature,

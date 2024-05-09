@@ -102,15 +102,15 @@ Base::PrefetchEvictListener::notify(const EvictionInfo &info)
 Base::Base(const BasePrefetcherParams &p)
     : ClockedObject(p), listeners(), system(nullptr), probeManager(nullptr),
       blkSize(p.block_size), lBlkSize(floorLog2(blkSize)),
-      onMiss(p.on_miss), onRead(p.on_read),
+      onMiss(p.on_miss), onRead(p.on_read), isSubPrefetcher(p.is_sub_prefetcher),
       onWrite(p.on_write), onData(p.on_data), onInst(p.on_inst),
       requestorId(p.sys->getRequestorId(this)),
       pageBytes(p.page_bytes),
       prefetchOnAccess(p.prefetch_on_access),
       prefetchOnPfHit(p.prefetch_on_pf_hit),
-      useVirtualAddresses(p.use_virtual_addresses),
+      useVirtualAddresses(p.use_virtual_addresses), maxCacheLevel(1), // TODO: extend this maxCacheLevel
       prefetchStats(this), issuedPrefetches(0),
-      usefulPrefetches(0), mmu(nullptr)
+      usefulPrefetches(0), streamlatenum(0), mmu(nullptr)
 {
 }
 
@@ -260,9 +260,11 @@ Base::probeNotify(const CacheAccessProbeArg &acc, bool miss)
     if (observeAccess(pkt, miss, has_been_prefetched)) {
         if (useVirtualAddresses && pkt->req->hasVaddr()) {
             PrefetchInfo pfi(pkt, pkt->req->getVaddr(), miss);
+            pfi.setPfHit(!miss && has_been_prefetched);
             notify(acc, pfi);
         } else if (!useVirtualAddresses) {
             PrefetchInfo pfi(pkt, pkt->req->getPaddr(), miss);
+            pfi.setPfHit(!miss && has_been_prefetched);
             notify(acc, pfi);
         }
     }
@@ -276,7 +278,7 @@ Base::regProbeListeners()
      * parent cache using the probe "Miss". Also connect to "Hit", if the
      * cache is configured to prefetch on accesses.
      */
-    if (listeners.empty() && probeManager != nullptr) {
+    if (listeners.empty() && probeManager != nullptr && !isSubPrefetcher) {
         listeners.push_back(new PrefetchListener(*this, probeManager,
                                                 "Miss", false, true));
         listeners.push_back(new PrefetchListener(*this, probeManager,

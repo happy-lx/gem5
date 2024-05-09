@@ -28,12 +28,16 @@
 
 #include "mem/cache/prefetch/bop.hh"
 
-#include "debug/HWPrefetch.hh"
+#include "base/stats/group.hh"
+#include "debug/BOPOffsets.hh"
+#include "debug/BOPPrefetcher.hh"
+#include "mem/cache/base.hh"
 #include "params/BOPPrefetcher.hh"
 
 namespace gem5
 {
 
+GEM5_DEPRECATED_NAMESPACE(Prefetcher, prefetch);
 namespace prefetch
 {
 
@@ -45,9 +49,11 @@ BOP::BOP(const BOPPrefetcherParams &p)
       delayQueueEnabled(p.delay_queue_enable),
       delayQueueSize(p.delay_queue_size),
       delayTicks(cyclesToTicks(p.delay_queue_cycles)),
+      victimListSize(p.victimOffsetsListSize),
+      restoreCycle(p.restoreCycle),
       delayQueueEvent([this]{ delayQueueEventWrapper(); }, name()),
       issuePrefetchRequests(false), bestOffset(1), phaseBestOffset(0),
-      bestScore(0), round(0)
+      bestScore(0), round(0), stats(this)
 {
     if (!isPowerOf2(rrEntries)) {
         fatal("%s: number of RR entries is not power of 2\n", name());
@@ -55,45 +61,47 @@ BOP::BOP(const BOPPrefetcherParams &p)
     if (!isPowerOf2(blkSize)) {
         fatal("%s: cache line size is not power of 2\n", name());
     }
-    if (!(p.negative_offsets_enable && (p.offset_list_size % 2 == 0))) {
-        fatal("%s: negative offsets enabled with odd offset list size\n",
-              name());
-    }
 
     rrLeft.resize(rrEntries);
     rrRight.resize(rrEntries);
 
-    // Following the paper implementation, a list with the specified number
-    // of offsets which are of the form 2^i * 3^j * 5^k with i,j,k >= 0
-    const int factors[] = { 2, 3, 5 };
-    unsigned int i = 0;
-    int64_t offset_i = 1;
-
-    while (i < p.offset_list_size)
-    {
-        int64_t offset = offset_i;
-
-        for (int n : factors) {
-            while ((offset % n) == 0) {
-                offset /= n;
-            }
-        }
-
-        if (offset == 1) {
-            offsetsList.push_back(OffsetListEntry(offset_i, 0));
-            i++;
-            // If we want to use negative offsets, add also the negative value
-            // of the offset just calculated
-            if (p.negative_offsets_enable)  {
-                offsetsList.push_back(OffsetListEntry(-offset_i, 0));
-                i++;
-            }
-        }
-
-        offset_i++;
+    int offset_count = p.offsets.size();
+    maxOffsetCount = p.negative_offsets_enable ? 2*p.offsets.size() : p.offsets.size();
+    if (p.autoLearning) {
+        maxOffsetCount = 32;
     }
 
+
+    for (int i = 0; i < offset_count; i++) {
+        offsetsList.emplace_back(p.offsets[i], (uint8_t) 0);
+        originOffsets.push_back(p.offsets[i]);
+        DPRINTF(BOPPrefetcher, "add %d to offset list\n", p.offsets[i]);
+        if (p.negative_offsets_enable) {
+            offsetsList.emplace_back(-p.offsets[i], (uint8_t) 0);
+            originOffsets.push_back(-p.offsets[i]);
+            DPRINTF(BOPPrefetcher, "add %d to offset list\n", -p.offsets[i]);
+        }
+    }
+
+    bestOffset = offsetsList.back().calcOffset();
+
     offsetsListIterator = offsetsList.begin();
+    bestoffsetsListIterator = offsetsListIterator;
+
+    restore_event = new EventFunctionWrapper([this](){
+        assert(victimOffsetsList.size() > 0);
+        int offset = victimOffsetsList.front();
+        victimOffsetsList.pop_front();
+        DPRINTF(BOPPrefetcher, "restore offset %d to offsetsList\n", offset);
+        tryAddOffset(offset);
+        if (victimOffsetsList.size() > 0) {
+            DPRINTF(BOPPrefetcher, "start victimOffset restore\n");
+            schedule(restore_event, cyclesToTicks(curCycle() + Cycles(restoreCycle)));
+        }
+        else {
+            victimRestoreScheduled = false;
+        }
+    },name(),false);
 }
 
 void
@@ -102,8 +110,7 @@ BOP::delayQueueEventWrapper()
     while (!delayQueue.empty() &&
             delayQueue.front().processTick <= curTick())
     {
-        Addr addr_x = delayQueue.front().baseAddr;
-        insertIntoRR(addr_x, RRWay::Left);
+        insertIntoRR(delayQueue.front().rrEntry, RRWay::Left);
         delayQueue.pop_front();
     }
 
@@ -122,20 +129,26 @@ BOP::hash(Addr addr, unsigned int way) const
 }
 
 void
-BOP::insertIntoRR(Addr addr, unsigned int way)
+BOP::insertIntoRR(Addr full_addr, Addr tag, unsigned int way)
+{
+    insertIntoRR(RREntryDebug(full_addr, tag), way);
+}
+
+void
+BOP::insertIntoRR(RREntryDebug rr_entry, unsigned int way)
 {
     switch (way) {
         case RRWay::Left:
-            rrLeft[hash(addr, RRWay::Left)] = addr;
+            rrLeft[hash(rr_entry.hashAddr, RRWay::Left)] = rr_entry;
             break;
         case RRWay::Right:
-            rrRight[hash(addr, RRWay::Right)] = addr;
+            rrRight[hash(rr_entry.hashAddr, RRWay::Right)] = rr_entry;
             break;
     }
 }
 
 void
-BOP::insertIntoDelayQueue(Addr x)
+BOP::insertIntoDelayQueue(Addr full_addr, Addr tag)
 {
     if (delayQueue.size() == delayQueueSize) {
         return;
@@ -145,7 +158,7 @@ BOP::insertIntoDelayQueue(Addr x)
     // it after the specified delay cycles
     Tick process_tick = curTick() + delayTicks;
 
-    delayQueue.push_back(DelayQueueEntry(x, process_tick));
+    delayQueue.push_back(DelayQueueEntry({full_addr, tag}, process_tick));
 
     if (!delayQueueEvent.scheduled()) {
         schedule(delayQueueEvent, process_tick);
@@ -156,48 +169,195 @@ void
 BOP::resetScores()
 {
     for (auto& it : offsetsList) {
-        it.second = 0;
+        it.score = 0;
     }
 }
 
 inline Addr
 BOP::tag(Addr addr) const
 {
-    return (addr >> blkSize) & tagMask;
+    return (addr >> lBlkSize) & tagMask;
+}
+
+std::pair<bool, BOP::RREntryDebug>
+BOP::testRR(Addr tag) const
+{
+    if (rrLeft[hash(tag, RRWay::Left)].hashAddr == tag) {
+        return std::make_pair(true, rrLeft[hash(tag, RRWay::Left)]);
+    }
+    if (rrRight[hash(tag, RRWay::Right)].hashAddr == tag) {
+        return std::make_pair(true, rrRight[hash(tag, RRWay::Right)]);
+    }
+
+    return std::make_pair(false, RREntryDebug());
 }
 
 bool
-BOP::testRR(Addr addr) const
+BOP::tryAddOffset(int64_t offset, bool late)
 {
-    for (auto& it : rrLeft) {
-        if (it == addr) {
-            return true;
+    assert(offset != 0);
+    bool find_it = std::find(offsetsList.begin(), offsetsList.end(), offset) != offsetsList.end();
+    if (find_it) {
+        return false;
+    }
+    if (victimOffsetsList.size() >= victimListSize) {
+        DPRINTF(BOPPrefetcher, "victimOffsetsList is full, can't add offset\n");
+        return false;
+    }
+
+    DPRINTF(BOPPrefetcher, "Reach %s entry, iter offset: %d\n", __FUNCTION__, offsetsListIterator->calcOffset());
+    // dump offsets:
+    DPRINTF(BOPPrefetcher, "offset list:\n");
+    for (const auto& it : offsetsList) {
+        DPRINTF(BOPPrefetcher, "%d*%d\n", it.offset, it.depth);
+    }
+    DPRINTF(BOPPrefetcher, "victim offset list:\n");
+    for (const auto& it : victimOffsetsList) {
+        DPRINTF(BOPPrefetcher, "%d\n", it);
+    }
+
+    if (offsetsList.size() >= maxOffsetCount) {
+        int evict_offset = 0;
+        auto it = offsetsList.begin();
+        while (it != offsetsList.end()) {
+            if (it->score <= badScore) {
+                break;
+            }
+            it++;
+        }
+        if (it == offsetsList.end()) {
+            // all offsets are good, erase the one before the iterator
+            if (offsetsListIterator == offsetsList.begin()) {
+                // the iterator is the first element, erase the last one
+                DPRINTFV(debug::BOPPrefetcher || debug::BOPOffsets, "erase offset %d from offset list\n",
+                        offsetsList.rbegin()->offset);
+                auto end_offset = --offsetsList.end();
+                evict_offset = end_offset->offset;
+                offsetsList.erase(end_offset);
+            } else {
+                auto temp = --offsetsListIterator;
+                DPRINTFV(debug::BOPPrefetcher || debug::BOPOffsets, "erase offset %d from offset list\n",
+                        temp->offset);
+                evict_offset = temp->offset;
+                offsetsListIterator = offsetsList.erase(temp);
+            }
+        } else {
+            // erase it from set and list
+            DPRINTFV(debug::BOPPrefetcher || debug::BOPOffsets, "erase unused offset %d from offset list\n",
+                     it->offset);
+            evict_offset = it->offset;
+            if (it == offsetsListIterator) {
+                offsetsListIterator = offsetsList.erase(it);  // update iterator
+                if (offsetsListIterator == offsetsList.end()) {
+                    offsetsListIterator = offsetsList.begin();
+                }
+            } else {
+                offsetsList.erase(it);
+            }
+            DPRINTFV(debug::BOPPrefetcher || debug::BOPOffsets, "%s after erase: iter offset: %d\n", __FUNCTION__,
+                     offsetsListIterator->calcOffset());
+        }
+        assert(evict_offset != 0);
+        if (std::find(originOffsets.begin(), originOffsets.end(), evict_offset) != originOffsets.end()) {
+            DPRINTF(BOPPrefetcher, "add offset %d to victimOffsetsList\n", evict_offset);
+            victimOffsetsList.push_back(evict_offset);
         }
     }
 
-    for (auto& it : rrRight) {
-        if (it == addr) {
-            return true;
-        }
-    }
+    // auto best_it = getBestOffsetIter();
 
-    return false;
+    auto offset_it = std::find(offsetsList.begin(), offsetsList.end(), offset);
+    if (offset_it == offsetsList.end()) {
+        bool found = false;
+        for (auto it = offsetsList.begin(); it != offsetsList.end(); it++) {
+            if (it == offsetsListIterator) {
+                found = true;
+            }
+        }
+        DPRINTF(BOPPrefetcher, "%s mid: iter offset: %d\n", __FUNCTION__, offsetsListIterator->calcOffset());
+        assert(found);
+        // insert it next to the offsetsListIterator
+        auto next_it = std::next(offsetsListIterator);
+        offsetsList.emplace(next_it, (int32_t) offset, (uint8_t) 0);
+        stats.learnOffsetCount++;
+        DPRINTFV(debug::BOPPrefetcher || debug::BOPOffsets, "add %d to offset list\n", offset);
+
+    } else {
+        bool found = false;
+        for (auto it = offsetsList.begin(); it != offsetsList.end(); it++) {
+            if (it->offset == offset) {
+                found = true;
+                break;
+            } else {
+                DPRINTFV(debug::BOPPrefetcher || debug::BOPOffsets, "offset %d != %ld\n", offset, it->offset);
+            }
+        }
+        assert(found);
+    }
+    DPRINTF(BOPPrefetcher, "Reach %s end, iter offset: %d\n", __FUNCTION__, offsetsListIterator->calcOffset());
+    return true;
 }
 
-void
-BOP::bestOffsetLearning(Addr x)
+std::list<BOP::OffsetListEntry>::iterator
+BOP::getBestOffsetIter()
 {
-    Addr offset_addr = (*offsetsListIterator).first;
-    Addr lookup_addr = x - offset_addr;
+    return std::find(offsetsList.begin(), offsetsList.end(), bestOffset);
+}
 
+bool
+BOP::bestOffsetLearning(Addr x, bool late, const PrefetchInfo &pfi)
+{
+    DPRINTF(BOPPrefetcher, "Reach %s entry, iter offset: %d\n", __FUNCTION__, offsetsListIterator->calcOffset());
+    Addr offset = offsetsListIterator->calcOffset();
+    Addr lookup_addr = x - offset;
+    DPRINTF(BOPPrefetcher, "%s: offset: %d lookup addr: %#lx\n", __FUNCTION__, offset, lookup_addr);
     // There was a hit in the RR table, increment the score for this offset
-    if (testRR(lookup_addr)) {
-        DPRINTF(HWPrefetch, "Address %#lx found in the RR table\n", x);
-        (*offsetsListIterator).second++;
-        if ((*offsetsListIterator).second > bestScore) {
-            bestScore = (*offsetsListIterator).second;
-            phaseBestOffset = (*offsetsListIterator).first;
-            DPRINTF(HWPrefetch, "New best score is %lu\n", bestScore);
+    auto [exist, rr_entry] = testRR(lookup_addr);
+    if (exist) {
+        // NOTE: no ArchDB
+        // if (archDBer) {
+        //     archDBer->bopTrainTraceWrite(curTick(), rr_entry.fullAddr, pfi.getAddr(), offset,
+        //                                 offsetsListIterator->score + 1, pfi.isCacheMiss());
+        // }
+
+        DPRINTF(BOPPrefetcher, "Address %#lx found in the RR table\n", x);
+        offsetsListIterator->score++;
+
+        if (offsetsListIterator->score >= round / 2) {
+            if (late) {
+                offsetsListIterator->late += 2;
+            } else {
+                offsetsListIterator->late--;
+            }
+
+            auto best_it = getBestOffsetIter();
+            bool update_depth = false;
+            if (offsetsListIterator->late > (uint8_t)42) {
+                offsetsListIterator->depth++;
+                update_depth = true;
+            }
+            if (offsetsListIterator->late < (uint8_t)4) {
+                offsetsListIterator->depth = std::max(1, offsetsListIterator->depth - 1);
+                update_depth = true;
+            }
+
+            if (update_depth) {
+                if (best_it == offsetsListIterator) {
+                    bestOffset = best_it->calcOffset();
+                }
+                DPRINTF(BOPPrefetcher, "Late saturates %u, offset updated to %d * %d\n",
+                        (uint8_t)offsetsListIterator->late, offsetsListIterator->offset, offsetsListIterator->depth);
+                offsetsListIterator->late.reset();
+            }
+        }
+
+        DPRINTF(BOPPrefetcher, "Offset %d score: %i, late: %i, depth: %i, late sat: %u\n", offsetsListIterator->offset,
+                offsetsListIterator->score, late, offsetsListIterator->depth, (uint8_t)offsetsListIterator->late);
+        if (offsetsListIterator->score > bestScore) {
+            bestoffsetsListIterator = offsetsListIterator;
+            bestScore = (*offsetsListIterator).score;
+            phaseBestOffset = offsetsListIterator->calcOffset();
+            DPRINTF(BOPPrefetcher, "New best score is %lu, phase best offset is %lu\n", bestScore, phaseBestOffset);
         }
     }
 
@@ -213,58 +373,110 @@ BOP::bestOffsetLearning(Addr x)
         // (1) One of the scores equals SCORE_MAX
         // (2) The number of rounds equals ROUND_MAX
         if ((bestScore >= scoreMax) || (round == roundMax)) {
+            DPRINTF(BOPPrefetcher, "update new score: %d round: %d phase best offset: %d\n",
+                    bestScore, round, phaseBestOffset);
+
+            if (bestScore > badScore) {
+                issuePrefetchRequests = true;
+                DPRINTF(BOPPrefetcher, "Enable prefetch\n");
+            } else {
+                issuePrefetchRequests = false;
+                DPRINTF(BOPPrefetcher, "Disable prefetch\n");
+            }
+
             bestOffset = phaseBestOffset;
             round = 0;
             bestScore = 0;
             phaseBestOffset = 0;
             resetScores();
-            issuePrefetchRequests = true;
-        } else if (bestScore <= badScore) {
+            //issuePrefetchRequests = true;
+            return true;
+        } else if ((round >= roundMax/2) && (bestOffset != phaseBestOffset) && (bestScore <= badScore)) {
+            DPRINTF(BOPPrefetcher, "last round offset has not enough confidence, early stop\n");
+            DPRINTF(BOPPrefetcher, "score %u <  badScore %u\n", bestScore, badScore);
             issuePrefetchRequests = false;
         }
     }
+    DPRINTF(BOPPrefetcher, "Reach %s end, iter offset: %d\n", __FUNCTION__, offsetsListIterator->calcOffset());
+    return false;
 }
 
 void
 BOP::calculatePrefetch(const PrefetchInfo &pfi,
-        std::vector<AddrPriority> &addresses,
-        const CacheAccessor &cache)
+        std::vector<AddrPriority> &addresses, bool late)
 {
-    Addr addr = pfi.getAddr();
+    Addr addr = blockAddress(pfi.getAddr());
     Addr tag_x = tag(addr);
 
+    DPRINTF(BOPPrefetcher,
+            "Train prefetcher with addr %#lx tag %#lx\n", addr, tag_x);
+
     if (delayQueueEnabled) {
-        insertIntoDelayQueue(tag_x);
+        insertIntoDelayQueue(addr, tag_x);
     } else {
-        insertIntoRR(tag_x, RRWay::Left);
+        insertIntoRR(addr, tag_x, RRWay::Left);
     }
 
     // Go through the nth offset and update the score, the best score and the
     // current best offset if a better one is found
-    bestOffsetLearning(tag_x);
+    bestOffsetLearning(tag_x, late, pfi);
 
     // This prefetcher is a degree 1 prefetch, so it will only generate one
     // prefetch at most per access
     if (issuePrefetchRequests) {
         Addr prefetch_addr = addr + (bestOffset << lBlkSize);
-        addresses.push_back(AddrPriority(prefetch_addr, 0));
-        DPRINTF(HWPrefetch, "Generated prefetch %#lx\n", prefetch_addr);
+        stats.issuedOffsetDist.sample(bestOffset);
+        sendPFWithFilter(pfi, prefetch_addr, addresses, 32, PrefetchSourceType::HWP_BOP);
+        DPRINTF(BOPPrefetcher,
+                "Generated prefetch %#lx offset: %d\n",
+                prefetch_addr, bestOffset);
+    } else {
+        stats.throttledCount++;
+        DPRINTF(BOPPrefetcher, "Issue prefetch is false, can't issue\n");
+    }
+
+    if (!victimRestoreScheduled && victimOffsetsList.size() > 0) {
+        victimRestoreScheduled = true;
+        DPRINTF(BOPPrefetcher, "start victimOffset restore\n");
+        schedule(restore_event, cyclesToTicks(curCycle() + Cycles(restoreCycle)));
+    }
+
+    DPRINTF(BOPPrefetcher, "Reach %s end, iter offset: %d\n", __FUNCTION__, offsetsListIterator->calcOffset());
+}
+
+bool
+BOP::sendPFWithFilter(const PrefetchInfo &pfi, Addr addr, std::vector<AddrPriority> &addresses, int prio,
+                      PrefetchSourceType src)
+{
+    // NOTE: no ArchDB
+    // if (archDBer && cache->level() == 1) {
+    //     archDBer->l1PFTraceWrite(curTick(), pfi.getPC(), pfi.getAddr(), addr, src);
+    // }
+    if (filter->contains(addr)) {
+        DPRINTF(BOPPrefetcher, "Skip recently prefetched: %lx\n", addr);
+        return false;
+    } else {
+        DPRINTF(BOPPrefetcher, "Send pf: %lx\n", addr);
+        filter->insert(addr, 0);
+        // TODO: Add Src Info
+        addresses.push_back(AddrPriority(addr, prio));
+        return true;
     }
 }
 
 void
-BOP::notifyFill(const CacheAccessProbeArg &arg)
+BOP::notifyFill(const CacheAccessProbeArg &acc)
 {
-    const PacketPtr& pkt = arg.pkt;
 
-    // Only insert into the RR right way if it's the pkt is a HWP
-    if (!pkt->cmd.isHWPrefetch()) return;
+}
 
-    Addr tag_y = tag(pkt->getAddr());
-
-    if (issuePrefetchRequests) {
-        insertIntoRR(tag_y - bestOffset, RRWay::Right);
-    }
+BOP::BopStats::BopStats(statistics::Group *parent)
+    : statistics::Group(parent),
+      ADD_STAT(issuedOffsetDist, statistics::units::Count::get(), "Distribution of issued offsets"),
+      ADD_STAT(learnOffsetCount, statistics::units::Count::get(), "Number of learning offsets"),
+      ADD_STAT(throttledCount, statistics::units::Count::get(), "Number of throttled prefetches")
+{
+    issuedOffsetDist.init(-64, 256, 1).prereq(issuedOffsetDist);
 }
 
 } // namespace prefetch

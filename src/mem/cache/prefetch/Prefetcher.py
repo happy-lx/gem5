@@ -88,6 +88,8 @@ class BasePrefetcher(ClockedObject):
     page_bytes = Param.MemorySize(
         "4KiB", "Size of pages for virtual addresses"
     )
+    
+    is_sub_prefetcher = Param.Bool(False, "Is this a sub-prefetcher")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -210,6 +212,270 @@ class StridePrefetcher(QueuedPrefetcher):
     table_replacement_policy = Param.BaseReplacementPolicy(
         RandomRP(), "Replacement policy of the PC table"
     )
+
+class XsStreamPrefetcher(QueuedPrefetcher):
+    type = "XsStreamPrefetcher"
+    cxx_class = "gem5::prefetch::XsStreamPrefetcher"
+    cxx_header = "mem/cache/prefetch/xs_stream.hh"
+
+    use_virtual_addresses = True
+    prefetch_on_pf_hit = True
+    on_read = True
+    on_write = False
+    on_data  = True
+    on_inst  = False
+    xs_stream_depth = Param.Int(32, "The depth of xs_stream_depth")
+    enable_auto_depth = Param.Bool(False, "enable autp depth.")
+    enable_l3_stream_pre = Param.Bool(False, "enable l3 stream pre.")
+    xs_stream_entries = Param.MemorySize(
+        "16",
+        "num of active generation table entries"
+    )
+    xs_stream_indexing_policy = Param.BaseIndexingPolicy(
+        SetAssociative(
+            entry_size=1,
+            assoc=Parent.xs_stream_entries,
+            size=Parent.xs_stream_entries),
+        "Indexing policy of active generation table"
+    )
+    xs_stream_replacement_policy = Param.BaseReplacementPolicy(
+        LRURP(),
+        "Replacement policy of active generation table"
+    )
+
+class OptPrefetcher(QueuedPrefetcher):
+    # Opt is short for Offset pattern table prefetcher, a variant of SMS' pattern history table
+    type = 'OptPrefetcher'
+    cxx_class = 'gem5::prefetch::OptPrefetcher'
+    cxx_header = "mem/cache/prefetch/opt.hh"
+    region_size_64 = Param.Int(4096, "region size")
+    opt_pf_level = Param.Int(3, "Prefetch target level")
+
+    act_64_entries = Param.MemorySize(
+        "64",
+        "num of active generation table entries"
+    )
+    act_64_indexing_policy = Param.BaseIndexingPolicy(
+        SetAssociative(
+            entry_size=1,
+            assoc=Parent.act_64_entries,
+            size=Parent.act_64_entries),
+        "Indexing policy of active generation table"
+    )
+    act_64_replacement_policy = Param.BaseReplacementPolicy(
+        LRURP(),
+        "Replacement policy of active generation table"
+    )
+    opt_entries = Param.MemorySize("64","num of offset history table entried")
+    opt_indexing_policy = Param.BaseIndexingPolicy(
+        SetAssociative(
+            entry_size=1,
+            assoc=Parent.opt_entries,
+            size=Parent.opt_entries),
+        "Indexing policy of offset history table"
+    )
+    opt_replacement_policy = Param.BaseReplacementPolicy(
+        LRURP(),
+        "Replacement policy of opt table"
+    )
+
+class XSStridePrefetcher(QueuedPrefetcher):
+    type = 'XSStridePrefetcher'
+    cxx_class = 'gem5::prefetch::XSStridePrefetcher'
+    cxx_header = "mem/cache/prefetch/xs_stride.hh"
+
+    use_virtual_addresses = True
+    prefetch_on_pf_hit = True
+    on_read = True
+    on_write = False
+    on_data = True
+    on_inst = False
+
+    use_xs_depth = Param.Bool(True,"use xs rtl stride depth")
+    fuzzy_stride_matching = Param.Bool(False, "Match stride with fuzzy condition")
+    short_stride_thres = Param.Unsigned(512, "Ignore short strides when there are long strides (Bytes)")
+    stride_dyn_depth = Param.Bool(False, "Dynamic depth of stride table")
+    stride_entries = Param.MemorySize("32", "Stride Entries")
+    stride_indexing_policy = Param.BaseIndexingPolicy(
+        SetAssociative(
+            entry_size=1,
+            assoc=Parent.stride_entries,
+            size=Parent.stride_entries),
+        "Indexing policy of stride table"
+    )
+    stride_replacement_policy = Param.BaseReplacementPolicy(
+        LRURP(),
+        "Replacement policy of stride table"
+    )
+    fuzzy_stride_matching = Param.Bool(False, "Match stride with fuzzy condition")
+
+    # stride black list
+    enable_non_stride_filter= Param.Bool(False, "Prevent non-stride PCs to touch stride table")
+    non_stride_entries = Param.MemorySize("256", "Non-Stride Entries")
+    non_stride_assoc = Param.Int(4, "Associativity of the non-stride pc table")
+    non_stride_indexing_policy = Param.BaseIndexingPolicy(
+        SetAssociative(
+            entry_size=1,
+            assoc=Parent.non_stride_assoc,
+            size=Parent.non_stride_entries),
+        "Indexing policy of non-stride PC table"
+    )
+    non_stride_replacement_policy = Param.BaseReplacementPolicy(
+        TreePLRURP(num_leaves=Parent.non_stride_assoc),
+        "Replacement policy of non-stride pc table"
+    )
+
+class BertiPrefetcher(QueuedPrefetcher):
+    type = "BertiPrefetcher"
+    cxx_class = "gem5::prefetch::BertiPrefetcher"
+    cxx_header = "mem/cache/prefetch/berti.hh"
+
+    use_virtual_addresses = True
+    prefetch_on_pf_hit = True
+    on_read = True
+    on_write = False
+    on_data  = True
+    on_inst  = False
+
+    addrlist_size = Param.Int(6, "The size of address list")
+
+    deltalist_size = Param.Int(4, "The size of delta list")
+
+    max_deltafound = Param.Int(4, "The maximum number of delta can be found")
+
+    aggressive_pf = Param.Bool(False, "Issue pf reqs as many as possible.")
+    history_table_entries = Param.MemorySize(
+        "64", "Number of history table entries."
+    )
+    history_table_assoc = Param.Int(4, "Associativity of the history table.")
+    history_table_indexing_policy = Param.BaseIndexingPolicy(
+        SetAssociative(
+            entry_size=1,
+            assoc=Parent.history_table_assoc,
+            size=Parent.history_table_entries
+        ),
+        "Indexing policy of history table."
+    )
+    history_table_replacement_policy = Param.BaseReplacementPolicy(
+        LRURP(),
+        "Replacement policy of history table"
+    )
+    use_byte_addr = Param.Bool(True, "Use byte address")
+    trigger_pht = Param.Bool(True, "Use Berti's prediction to trigger PHT")
+    dump_top_deltas = Param.Bool(True, "Dump top deltas on exit")
+
+class CMCPrefetcher(QueuedPrefetcher):
+    type = "CMCPrefetcher"
+    cxx_class = "gem5::prefetch::CMCPrefetcher"
+    cxx_header = "mem/cache/prefetch/cmc.hh"
+
+    use_virtual_addresses = True
+    prefetch_on_pf_hit = True
+    on_read = True
+    on_write = False
+    on_data  = True
+    on_inst  = False
+
+    storage_entries = Param.MemorySize(
+        "16384",
+        "Number of CMC storage entries"
+    )
+    storage_assoc = Param.Int(16, "Associativity of the CMC storage table")
+    storage_indexing_policy = Param.BaseIndexingPolicy(
+        SetAssociative(
+            entry_size=1,
+            assoc=Parent.storage_assoc,
+            size=Parent.storage_entries),
+        "Indexing policy of active generation table"
+    )
+    # constituency_size = Param.Unsigned(32, "constituency_size")
+    # team_size = Param.Unsigned(16, "Associativity of the CMC storage table")
+    # storage_replacement_policy = Param.BaseReplacementPolicy(
+    #     DRRIPRP(constituency_size = Parent.constituency_size,
+    #       team_size = Parent.team_size),
+    #     "Replacement policy of active generation table"
+    # )
+    storage_replacement_policy = Param.BaseReplacementPolicy(
+        BRRIPRP(),
+        "Replacement policy of active generation table"
+    )
+
+    degree = Param.Int(4, "prefetch degree")
+    enablePrefetchDB = Param.Bool(
+        False,
+        "Enable prefetch database"
+    )
+    
+class BOPPrefetcher(QueuedPrefetcher):
+    type = "BOPPrefetcher"
+    cxx_class = 'gem5::prefetch::BOP'
+    cxx_header = "mem/cache/prefetch/bop.hh"
+
+    use_virtual_addresses = False
+    prefetch_on_pf_hit = True
+    on_read = True
+    on_write = False
+    on_data  = True
+    on_inst  = False
+
+    score_max = Param.Unsigned(20, "Max. score to update the best offset")
+    round_max = Param.Unsigned(50, "Max. round to update the best offset")
+    bad_score = Param.Unsigned(12, "Score at which the HWP is disabled")
+    rr_size = Param.Unsigned(256, "Number of entries of each RR bank")
+    tag_bits = Param.Unsigned(24, "Bits used to store the tag")
+    negative_offsets_enable = Param.Bool(False,
+                "Initialize the offsets list also with negative values \
+                (i.e. the table will have half of the entries with positive \
+                offsets and the other half with negative ones)")
+    delay_queue_enable = Param.Bool(True, "Enable the delay queue")
+    delay_queue_size = Param.Unsigned(64,
+                "Number of entries in the delay queue")
+    delay_queue_cycles = Param.Cycles(150,
+                "Cycles to delay a write in the left RR table from the delay queue")
+
+    autoLearning = Param.Bool(False," auto learn offset")
+
+    offsets = VectorParam.Int([72, 75, 80, 81, 90, 96, 100, 108, 120, 125, 128, 135, 144,
+                              150, 160, 162, 180, 192, 200, 216, 225, 240, 243, 250, 256], "Predefined offsets")
+
+    victimOffsetsListSize = Param.Int(10, "The size of victimOffsetsList")
+    restoreCycle = Param.Int(250000, "Cycles which Restore one offset from victimOffsetsList")
+    
+class SmallBOPPrefetcher(BOPPrefetcher):
+    score_max = 31
+    round_max = 30
+    bad_score = 8
+    rr_size = 256
+    tag_bits = 24
+    negative_offsets_enable = True
+    delay_queue_enable = False
+
+    offsets = [1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16, 18, 20,
+               24, 25, 27, 30, 32, 36, 40, 45, 48, 50, 54, 60, 64]
+
+class LearnedBOPPrefetcher(BOPPrefetcher):
+    score_max = 31
+    round_max = 30
+    bad_score = 8
+    rr_size = 256
+    tag_bits = 24
+    negative_offsets_enable = True
+    delay_queue_enable = True
+    delay_queue_size = 16
+    delay_queue_cycles = 30
+
+    autoLearning = True
+    offsets = [64]
+
+class IPCPrefetcher(QueuedPrefetcher):
+    type = 'IPCPrefetcher'
+    cxx_class = 'gem5::prefetch::IPCP'
+    cxx_header = 'mem/cache/prefetch/ipcp.hh'
+
+    use_rrf = Param.Bool(True,"")
+    degree = Param.Int(4, "Number of prefetches to generate")
+    ipt_size = Param.Int(64, "Size of IP Table")
+    cspt_size = Param.Int(256, "Szie of CSP Table")
 
 class StreamPrefetcher(QueuedPrefetcher):
     type = "StreamPrefetcher"
@@ -573,35 +839,6 @@ class SlimAMPMPrefetcher(QueuedPrefetcher):
     )
 
 
-class BOPPrefetcher(QueuedPrefetcher):
-    type = "BOPPrefetcher"
-    cxx_class = "gem5::prefetch::BOP"
-    cxx_header = "mem/cache/prefetch/bop.hh"
-    score_max = Param.Unsigned(31, "Max. score to update the best offset")
-    round_max = Param.Unsigned(100, "Max. round to update the best offset")
-    bad_score = Param.Unsigned(10, "Score at which the HWP is disabled")
-    rr_size = Param.Unsigned(64, "Number of entries of each RR bank")
-    tag_bits = Param.Unsigned(12, "Bits used to store the tag")
-    offset_list_size = Param.Unsigned(
-        46, "Number of entries in the offsets list"
-    )
-    negative_offsets_enable = Param.Bool(
-        True,
-        "Initialize the offsets list also with negative values \
-                (i.e. the table will have half of the entries with positive \
-                offsets and the other half with negative ones)",
-    )
-    delay_queue_enable = Param.Bool(True, "Enable the delay queue")
-    delay_queue_size = Param.Unsigned(
-        15, "Number of entries in the delay queue"
-    )
-    delay_queue_cycles = Param.Cycles(
-        60,
-        "Cycles to delay a write in the left RR table from the delay \
-                queue",
-    )
-
-
 class SBOOEPrefetcher(QueuedPrefetcher):
     type = "SBOOEPrefetcher"
     cxx_class = "gem5::prefetch::SBOOE"
@@ -714,3 +951,154 @@ class PIFPrefetcher(QueuedPrefetcher):
         self.addEvent(
             HWPProbeEventRetiredInsts(self, simObj, "RetiredInstsPC")
         )
+
+class XSCompositePrefetcher(QueuedPrefetcher):
+    type = "XSCompositePrefetcher"
+    cxx_class = 'gem5::prefetch::XSCompositePrefetcher'
+    cxx_header = 'mem/cache/prefetch/sms.hh'
+
+    use_virtual_addresses = True
+    prefetch_on_pf_hit = True
+    on_read = True
+    on_write = False
+    on_data  = True
+    on_inst  = False
+
+    region_size = Param.Int(1024, "region size")
+    # filter table (full-assoc)
+    filter_entries = Param.MemorySize("16", "num of filter table entries")
+    filter_indexing_policy = Param.BaseIndexingPolicy(
+        SetAssociative(
+            entry_size=1,
+            assoc=Parent.filter_entries,
+            size=Parent.filter_entries),
+        "Indexing policy of filter table"
+    )
+    filter_replacement_policy = Param.BaseReplacementPolicy(
+        FIFORP(),
+        "Replacement policy of filter table"
+    )
+    # active generation table (full-assoc)
+    act_entries = Param.MemorySize(
+        "32",
+        "num of active generation table entries"
+    )
+    act_indexing_policy = Param.BaseIndexingPolicy(
+        SetAssociative(
+            entry_size=1,
+            assoc=Parent.act_entries,
+            size=Parent.act_entries),
+        "Indexing policy of active generation table"
+    )
+    act_replacement_policy = Param.BaseReplacementPolicy(
+        LRURP(),
+        "Replacement policy of active generation table"
+    )
+    re_act_entries = Param.MemorySize(
+        "32",
+        "num of recently active generation table entries"
+    )
+    re_act_indexing_policy = Param.BaseIndexingPolicy(
+        SetAssociative(
+            entry_size=1,
+            assoc=Parent.re_act_entries,
+            size=Parent.re_act_entries),
+        "Indexing policy of recently active generation table"
+    )
+    re_act_replacement_policy = Param.BaseReplacementPolicy(
+        FIFORP(),
+        "Replacement policy of recently active generation table"
+    )
+    stream_pf_ahead = Param.Bool(True, "Prefetch stream region ahead of current region")
+    # stride table (full-assoc)
+    stride_dyn_depth = Param.Bool(True, "Dynamic depth of stride table")
+    stride_entries = Param.MemorySize("32", "Stride Entries")
+    stride_indexing_policy = Param.BaseIndexingPolicy(
+        SetAssociative(
+            entry_size=1,
+            assoc=Parent.stride_entries,
+            size=Parent.stride_entries),
+        "Indexing policy of stride table"
+    )
+    stride_replacement_policy = Param.BaseReplacementPolicy(
+        LRURP(),
+        "Replacement policy of stride table"
+    )
+    fuzzy_stride_matching = Param.Bool(False, "Match stride with fuzzy condition")
+
+    # stride black list
+    enable_non_stride_filter= Param.Bool(False, "Prevent non-stride PCs to touch stride table")
+    non_stride_entries = Param.MemorySize("256", "Non-Stride Entries")
+    non_stride_assoc = Param.Int(4, "Associativity of the non-stride pc table")
+    non_stride_indexing_policy = Param.BaseIndexingPolicy(
+        SetAssociative(
+            entry_size=1,
+            assoc=Parent.non_stride_assoc,
+            size=Parent.non_stride_entries),
+        "Indexing policy of non-stride PC table"
+    )
+    non_stride_replacement_policy = Param.BaseReplacementPolicy(
+        TreePLRURP(num_leaves=Parent.non_stride_assoc),
+        "Replacement policy of non-stride pc table"
+    )
+
+    # pht table (set-assoc)
+    pht_entries = Param.MemorySize(
+        "64",
+        "num of pattern history table entries"
+    )
+    pht_assoc = Param.Int(4, "Associativity of the pattern history table")
+    pht_indexing_policy = Param.BaseIndexingPolicy(
+        SetAssociative(
+            entry_size=1,
+            assoc=Parent.pht_assoc,
+            size=Parent.pht_entries),
+        "Indexing policy of pattern history table"
+    )
+    pht_replacement_policy = Param.BaseReplacementPolicy(
+        LRURP(),
+        "Replacement policy of pattern history table"
+    )
+    pht_pf_ahead = Param.Bool(True, "Prefetch pattern region ahead with stride")
+    pht_pf_level = Param.Int(2, "Prefetch target level")
+    # pf gen table (full-assoc)
+    # not implemented now, because queued prefetcher already had a filter
+    pf_gen_entries = Param.MemorySize("16", "num of pf_gen entries")
+    pf_gen_indexing_policy = Param.BaseIndexingPolicy(
+        SetAssociative(
+            entry_size=1,
+            assoc=Parent.pf_gen_entries,
+            size=Parent.pf_gen_entries),
+        "Indexing policy of pf_gen"
+    )
+    pf_gen_replacement_policy = Param.BaseReplacementPolicy(
+        LRURP(),
+        "Replacement policy of pf_gen"
+    )
+    bop_large = Param.BasePrefetcher(BOPPrefetcher(is_sub_prefetcher=True),
+                                     "Large BOP used in composite prefetcher ")
+    bop_small = Param.BasePrefetcher(SmallBOPPrefetcher(is_sub_prefetcher=True),
+                                     "Small BOP used in composite prefetcher ")
+    bop_learned = Param.BasePrefetcher(LearnedBOPPrefetcher(is_sub_prefetcher=True),
+                                       "Learned BOP used in composite prefetcher ")
+    spp = Param.BasePrefetcher(SignaturePathPrefetcher(is_sub_prefetcher=True),
+                               "SPP used in composite prefetcher")
+    ipcp = Param.IPCPrefetcher(IPCPrefetcher(use_rrf = False, is_sub_prefetcher=True), "")
+    cmc = Param.CMCPrefetcher(CMCPrefetcher(is_sub_prefetcher=True), "")
+    berti = Param.BertiPrefetcher(BertiPrefetcher(is_sub_prefetcher=True), "")
+    sstride = Param.XSStridePrefetcher(XSStridePrefetcher(is_sub_prefetcher=True), "")
+    opt = Param.OptPrefetcher(OptPrefetcher(is_sub_prefetcher=True), "")
+    xsstream = Param.XsStreamPrefetcher(XsStreamPrefetcher(is_sub_prefetcher=True), "")
+
+    enable_activepage = Param.Bool(True,"Enable activepage stream prefetcher")
+    enable_cplx = Param.Bool(False, "Enable CPLX component")
+    enable_spp = Param.Bool(False, "Enable SPP component")
+    enable_temporal = Param.Bool(False, "Enable temporal component")
+    enable_berti = Param.Bool(True,"Enable berti component")
+
+    enable_sstride = Param.Bool(False,"Enable sms stride component")
+    enable_opt = Param.Bool(False,"Enable opt component")
+    enable_xsstream = Param.Bool(False,"Enable xs_stream component")
+    short_stride_thres = Param.Unsigned(512, "Ignore short strides when there are long strides (Bytes)")
+    pht_early_update = Param.Bool(True, "Enable update pht earlier")
+    neighbor_pht_update = Param.Bool(True, "Enable use nearby act entry to update pht")

@@ -231,7 +231,7 @@ struct StringWrap
 #define DPRINTFV(x, ...) do {                          \
     if (GEM5_UNLIKELY(TRACING_ON && (x))) {              \
         ::gem5::trace::getDebugLogger()->dprintf_flag(         \
-            ::gem5::curTick(), name(), x.name(), __VA_ARGS__); \
+            ::gem5::curTick(), name(), #x, __VA_ARGS__); \
     }                                                  \
 } while (0)
 
