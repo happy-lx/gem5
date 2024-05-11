@@ -149,6 +149,10 @@ bool hasBeenPrefetched(Addr txnId, bool is_secure) {
   return false;
 }
 
+PrefetchSourceType getHitBlkPfSrc(Addr addr) {
+  return nullPrefetchSource();
+}
+
 bool inMissQueue(Addr txnId, bool is_secure) {
   return false;
 }

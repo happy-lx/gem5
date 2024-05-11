@@ -378,8 +378,7 @@ SignaturePath::sendPFWithFilter(Addr addr, std::vector<AddrPriority> &addresses,
     } else {
         DPRINTF(SPP, "Send pf: %lx\n", addr);
         filter.insert(addr, 0);
-        // TODO: Add Src Info
-        addresses.push_back(AddrPriority(addr, prio));
+        addresses.push_back(AddrPriority(addr, prio, PrefetchSourceType::SPP));
         return true;
     }
 }

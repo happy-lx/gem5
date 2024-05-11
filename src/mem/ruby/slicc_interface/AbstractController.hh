@@ -387,6 +387,9 @@ class AbstractController : public ClockedObject, public Consumer
     virtual bool coalesce()
     { fatal("coalesce: prefetching not supported"); return false; }
 
+    virtual PrefetchSourceType getHitBlkPfSrc(const Addr &addr)
+    { fatal("getHitBlkPfSrc: not supported in AbstractController"); return PrefetchSourceType::PF_NONE;}
+
     friend class RubyPrefetcherProxy;
 
   protected:

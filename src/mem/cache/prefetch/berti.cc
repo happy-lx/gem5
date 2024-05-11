@@ -284,8 +284,7 @@ BertiPrefetcher::sendPFWithFilter(const PrefetchInfo &pfi, Addr addr, std::vecto
         topDeltas[blk_delta] = topDeltas.count(blk_delta) ? topDeltas[blk_delta] + 1 : 1;
         DPRINTF(BertiPrefetcher, "Send pf: %lx\n", addr);
         filter->insert(addr, 0);
-        // TODO: Add Src Info
-        addresses.push_back(AddrPriority(addr, prio));
+        addresses.push_back(AddrPriority(addr, prio, src));
         return true;
     }
 }

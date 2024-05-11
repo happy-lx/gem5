@@ -566,8 +566,8 @@ XSCompositePrefetcher::sendPFWithFilter(const PrefetchInfo &pfi, Addr addr, std:
         // if (archDBer) {
         //     archDBer->l1PFTraceWrite(curTick(), pfi.getPC(), pfi.getAddr(), addr, src);
         // }
-        // TODO: Add (Src Info & Level Info)
-        addresses.push_back(AddrPriority(addr, prio));
+        // TODO: Add (Level Info)
+        addresses.push_back(AddrPriority(addr, prio, src));
         // if (ahead_level > 1) {
         //     assert(ahead_level == 2 || ahead_level == 3);
         //     addresses.back().pfahead_host = ahead_level;

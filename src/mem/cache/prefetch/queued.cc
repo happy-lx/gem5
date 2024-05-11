@@ -66,6 +66,7 @@ Queued::DeferredPacket::createPkt(Addr paddr, unsigned blk_size,
     if (pfInfo.isSecure()) {
         req->setFlags(Request::SECURE);
     }
+    req->setPfSrc(pfSrc);
     req->taskId(context_switch_task_id::Prefetcher);
     pkt = new Packet(req, MemCmd::HardPFReq);
     pkt->allocate();
@@ -207,9 +208,9 @@ Queued::notify(const CacheAccessProbeArg &acc, const PrefetchInfo &pfi)
     for (AddrPriority& addr_prio : addresses) {
 
         // Block align prefetch address
-        addr_prio.first = blockAddress(addr_prio.first);
+        addr_prio.addr = blockAddress(addr_prio.addr);
 
-        if (!samePage(addr_prio.first, pfi.getAddr())) {
+        if (!samePage(addr_prio.addr, pfi.getAddr())) {
             statsQueued.pfSpanPage += 1;
 
             if (cache.hasBeenPrefetched(pkt->getAddr(), pkt->isSecure())) {
@@ -218,13 +219,13 @@ Queued::notify(const CacheAccessProbeArg &acc, const PrefetchInfo &pfi)
         }
 
         bool can_cross_page = (mmu != nullptr);
-        if (can_cross_page || samePage(addr_prio.first, pfi.getAddr())) {
-            PrefetchInfo new_pfi(pfi,addr_prio.first);
+        if (can_cross_page || samePage(addr_prio.addr, pfi.getAddr())) {
+            PrefetchInfo new_pfi(pfi,addr_prio.addr);
             statsQueued.pfIdentified++;
             DPRINTF(HWPrefetch, "Found a pf candidate addr: %#x, "
                     "inserting into prefetch queue.\n", new_pfi.getAddr());
             // Create and insert the request
-            insert(pkt, new_pfi, addr_prio.second, cache);
+            insert(pkt, new_pfi, addr_prio.priority, addr_prio.pfSource, cache);
             num_pfs += 1;
             if (num_pfs == max_pfs) {
                 break;
@@ -386,7 +387,7 @@ Queued::createPrefetchRequest(Addr addr, PrefetchInfo const &pfi,
 
 void
 Queued::insert(const PacketPtr &pkt, PrefetchInfo &new_pfi,
-               int32_t priority, const CacheAccessor &cache)
+               int32_t priority, PrefetchSourceType src, const CacheAccessor &cache)
 {
     if (queueFilter) {
         if (alreadyInQueue(pfq, new_pfi, priority)) {
@@ -464,7 +465,7 @@ Queued::insert(const PacketPtr &pkt, PrefetchInfo &new_pfi,
     }
 
     /* Create the packet and find the spot to insert it */
-    DeferredPacket dpp(this, new_pfi, 0, priority, cache);
+    DeferredPacket dpp(this, new_pfi, 0, priority, src, cache);
     if (has_target_pa) {
         Tick pf_time = curTick() + clockPeriod() * latency;
         dpp.createPkt(target_paddr, blkSize, requestorId, tagPrefetch,

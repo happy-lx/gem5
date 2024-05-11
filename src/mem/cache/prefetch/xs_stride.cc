@@ -245,8 +245,7 @@ XSStridePrefetcher::sendPFWithFilter(const PrefetchInfo &pfi, Addr addr, std::ve
     } else {
         DPRINTF(XSStridePrefetcher, "Send pf: %lx\n", addr);
         filter->insert(addr, 0);
-        // TODO: Add Src Info
-        addresses.push_back(AddrPriority(addr, prio));
+        addresses.push_back(AddrPriority(addr, prio, src));
         return true;
     }
 }

@@ -63,8 +63,7 @@ IPCP::sendPFWithFilter(const PrefetchInfo &pfi, Addr addr, std::vector<AddrPrior
         return false;
     } else {
         rrf->insert(addr, 0);
-        // TODO: Add Src Info
-        addresses.push_back(AddrPriority(addr, prio));
+        addresses.push_back(AddrPriority(addr, prio, pfSource));
         return true;
     }
     return false;

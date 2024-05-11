@@ -334,6 +334,12 @@ bool hasBeenPrefetched(Addr addr, bool is_secure) {
   }
 }
 
+PrefetchSourceType getHitBlkPfSrc(Addr addr) {
+  CacheEntry entry := getCacheEntry(makeLineAddress(addr));
+  assert(is_valid(entry) && (entry.state != State:I));
+  return entry.pfSrc;
+}
+
 bool inMissQueue(Addr addr, bool is_secure) {
   Addr line_addr := makeLineAddress(addr);
   TBE tbe := getCurrentActiveTBE(line_addr);

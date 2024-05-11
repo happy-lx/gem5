@@ -68,6 +68,14 @@ struct CacheAccessor
 
     /** Determine if cache is coalescing writes */
     virtual bool coalesce() const = 0;
+
+    /** Determine if cache is coalescing writes */
+    virtual PrefetchSourceType getHitBlkPfSrc(Addr addr) const {
+        // TODO: Support PF SRC in classic cache
+        // NOTE: ruby cache will override this function
+        panic("for now, dont support this function in classic cache");
+        return PrefetchSourceType::PF_NONE;
+    };
 };
 
 /**

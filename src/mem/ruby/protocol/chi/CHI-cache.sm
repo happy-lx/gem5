@@ -578,6 +578,7 @@ machine(MachineType:Cache, "Cache coherency protocol") :
     DataBlock DataBlk,  desc="data for the block";
     bool HWPrefetched,  default="false", desc="Set if this cache entry was prefetched";
     RequestorID requestor,  desc="First requestor to fill this block";
+    PrefetchSourceType pfSrc, default="PrefetchSourceType::PF_NONE", desc="Which Prefetcher brought back the block";
   }
 
   // Directory entry

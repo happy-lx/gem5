@@ -3713,6 +3713,9 @@ action(Profile_Fill, desc="") {
                           (tbe.is_remote_pf &&
                             (upstream_prefetch_trains_prefetcher == false));
     cache_entry.requestor := getRequestorID(tbe.seqReq);
+    cache_entry.pfSrc := getPrefetchSource(tbe.seqReq);
+
+    DPRINTF(RubyRefillEvent, "PF: Write pfSrc: %d to Cache\n", cache_entry.pfSrc);
 
     // Prefetchers that use this info require notifications from both
     // demand and pf fills (unlike notifyPfHit/notifyPfMiss)

@@ -170,6 +170,11 @@ class RubyPrefetcherProxy : public CacheAccessor, public Named
     bool coalesce() const override
     { return cacheCntrl->coalesce(); }
 
+    PrefetchSourceType getHitBlkPfSrc(Addr addr) const override
+    {
+      return cacheCntrl->getHitBlkPfSrc(addr);
+    }
+
 };
 
 } // namespace ruby

@@ -229,8 +229,7 @@ CMCPrefetcher::sendPFWithFilter(const PrefetchInfo &pfi, Addr addr, std::vector<
     } else {
         DPRINTF(CMCPrefetcher, "CMC: send pf: %lx\n", addr);
         filter->insert(addr, 0);
-        // TODO: Add Src Info
-        addresses.push_back(AddrPriority(addr, prio));
+        addresses.push_back(AddrPriority(addr, prio, src));
         return true;
     }
     return false;

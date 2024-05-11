@@ -131,6 +131,8 @@ class Base : public ClockedObject
         uint8_t *data;
         /** Whether hit a prefetched cache block */
         bool prefetchHit;
+        /** The Source Field of Prefetcher */
+        PrefetchSourceType pfSrc = PrefetchSourceType::PF_NONE;
 
       public:
         /**
@@ -225,10 +227,13 @@ class Base : public ClockedObject
         }
 
         void setPfHit(bool hit) { prefetchHit = hit; }
+        void setPfSrc(PrefetchSourceType src) { pfSrc = src; }
 
         // TODO: distinguish These two
         bool isPfHit() const { return prefetchHit; }
         bool isPfFirstHit() const { return prefetchHit; }
+
+        PrefetchSourceType getPfSrc() const { return pfSrc; }
         
         bool isEverPrefetched() const { return isPfHit(); }
 

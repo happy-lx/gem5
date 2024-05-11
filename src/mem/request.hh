@@ -489,6 +489,9 @@ class Request : public Extensible<Request>
     /** The cause for HTM transaction abort */
     HtmFailureFaultCause _htmAbortCause = HtmFailureFaultCause::INVALID;
 
+    /** The Source Field of Prefetcher */
+    PrefetchSourceType _pfSrc = PrefetchSourceType::PF_NONE;
+
   public:
 
     /**
@@ -620,6 +623,15 @@ class Request : public Extensible<Request>
     }
 
     /**
+     * Set the source field of Prefetcher
+     */
+    void
+    setPfSrc(PrefetchSourceType src)
+    {
+        _pfSrc = src;
+    }
+
+    /**
      * Generate two requests as if this request had been split into two
      * pieces. The original request can't have been translated already.
      */
@@ -725,6 +737,12 @@ class Request : public Extensible<Request>
     {
         assert(be.size() == _size);
         _byteEnable = be;
+    }
+
+    PrefetchSourceType
+    getPfSrc() const
+    {
+       return _pfSrc;
     }
 
     /**

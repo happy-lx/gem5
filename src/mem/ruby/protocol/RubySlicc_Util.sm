@@ -61,3 +61,5 @@ structure(BoolVec, external="yes") {
 }
 int countBoolVec(BoolVec bVec);
 RequestorID getRequestorID(RequestPtr req);
+PrefetchSourceType nullPrefetchSource();
+PrefetchSourceType getPrefetchSource(RequestPtr req);

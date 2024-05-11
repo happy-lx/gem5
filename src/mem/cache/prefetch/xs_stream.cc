@@ -109,8 +109,8 @@ XsStreamPrefetcher::sendPFWithFilter(const PrefetchInfo &pfi, Addr addr, std::ve
     } else {
         DPRINTF(XsStreamPrefetcher, "Send pf: %lx\n", addr);
         filter->insert(addr, 0);
-        // TODO: Add (Src Info & Level Info)
-        addresses.push_back(AddrPriority(addr, prio));
+        // TODO: Add (Level Info)
+        addresses.push_back(AddrPriority(addr, prio, src));
         streamBlkFilter.insert(addr, 0);
         // if (ahead_level > 1) {
         //     assert(ahead_level == 2 || ahead_level == 3);

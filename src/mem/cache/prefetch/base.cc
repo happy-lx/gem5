@@ -49,6 +49,7 @@
 
 #include "base/intmath.hh"
 #include "mem/cache/base.hh"
+#include "debug/RubyDebuger.hh"
 #include "params/BasePrefetcher.hh"
 #include "sim/system.hh"
 
@@ -261,10 +262,26 @@ Base::probeNotify(const CacheAccessProbeArg &acc, bool miss)
         if (useVirtualAddresses && pkt->req->hasVaddr()) {
             PrefetchInfo pfi(pkt, pkt->req->getVaddr(), miss);
             pfi.setPfHit(!miss && has_been_prefetched);
+            if(!miss) {
+                pfi.setPfSrc(cache.getHitBlkPfSrc(pkt->getAddr()));
+                DPRINTF(RubyDebuger, "Notify a Cache Hit, pfSource Field: %d\n",
+                static_cast<int>(pfi.getPfSrc()));
+            }else {
+                // return the source of request in miss?
+                pfi.setPfSrc(pkt->req->getPfSrc());
+            }
             notify(acc, pfi);
         } else if (!useVirtualAddresses) {
             PrefetchInfo pfi(pkt, pkt->req->getPaddr(), miss);
             pfi.setPfHit(!miss && has_been_prefetched);
+            if(!miss) {
+                pfi.setPfSrc(cache.getHitBlkPfSrc(pkt->getAddr()));
+                DPRINTF(RubyDebuger, "Notify a Cache Hit, pfSource Field: %d\n",
+                static_cast<int>(pfi.getPfSrc()));
+            }else {
+                // return the source of request in miss?
+                pfi.setPfSrc(pkt->req->getPfSrc());
+            }
             notify(acc, pfi);
         }
     }
