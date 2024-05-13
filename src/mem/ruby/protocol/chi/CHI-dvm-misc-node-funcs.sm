@@ -67,7 +67,7 @@ Event curTransitionEvent();
 State curTransitionNextState();
 
 void notifyPfHit(RequestPtr req, bool is_read, DataBlock blk) { }
-void notifyPfMiss(RequestPtr req, bool is_read, DataBlock blk) { }
+void notifyPfMiss(RequestPtr req, bool is_read, bool coalescing_mshr, DataBlock blk) { }
 void notifyPfFill(RequestPtr req, DataBlock blk, bool from_pf) { }
 void notifyPfEvict(Addr blkAddr, bool hwPrefetched) { }
 void notifyPfComplete(Addr addr) { }

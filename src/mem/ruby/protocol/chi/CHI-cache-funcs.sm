@@ -364,7 +364,8 @@ void notifyCoalesced(Addr addr, RubyRequestType type, RequestPtr req,
                     (type == RubyRequestType:Load_Linked) ||
                     (type == RubyRequestType:IFETCH);
     if (was_miss) {
-      pfProxy.notifyPfMiss(req, is_read, data_blk);
+      // TODO: find mshr of this addr, take it's pfSrc
+      pfProxy.notifyPfMiss(req, is_read, true, data_blk);
     } else {
       pfProxy.notifyPfHit(req, is_read, data_blk);
     }

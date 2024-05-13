@@ -265,7 +265,7 @@ structure (RubyPrefetcher, external = "yes") {
 
 structure(RubyPrefetcherProxy, external = "yes") {
     void notifyPfHit(RequestPtr, bool, DataBlock);
-    void notifyPfMiss(RequestPtr, bool, DataBlock);
+    void notifyPfMiss(RequestPtr, bool, bool, DataBlock);
     void notifyPfFill(RequestPtr, DataBlock, bool);
     void notifyPfEvict(Addr, bool, RequestorID);
     void completePrefetch(Addr);

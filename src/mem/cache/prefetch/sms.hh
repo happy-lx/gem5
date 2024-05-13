@@ -143,8 +143,8 @@ class XSCompositePrefetcher : public Queued
     // redirect
     void calculatePrefetch(const PrefetchInfo &pfi, std::vector<AddrPriority> &addresses, const CacheAccessor &cache) override
     {
-        // TODO: Add Src Info & MSHR Coalescing Info
-        this->calculatePrefetch(pfi, addresses, false, pfi.getPfSrc(), false);
+        // TODO: Add Pf Late Info
+        this->calculatePrefetch(pfi, addresses, false, pfi.getPfSrc(), pfi.getCoalescingMSHR());
     };
 
     void calculatePrefetch(const PrefetchInfo &pfi, std::vector<AddrPriority> &addresses, bool late,

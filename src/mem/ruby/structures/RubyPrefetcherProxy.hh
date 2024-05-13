@@ -94,6 +94,7 @@ class RubyPrefetcherProxy : public CacheAccessor, public Named
     void notifyPfHit(const RequestPtr& req, bool is_read,
                      const DataBlock& data_blk);
     void notifyPfMiss(const RequestPtr& req, bool is_read,
+                      const bool coalescing_mshr,
                       const DataBlock& data_blk);
     void notifyPfFill(const RequestPtr& req, const DataBlock& data_blk,
                       bool from_pf);

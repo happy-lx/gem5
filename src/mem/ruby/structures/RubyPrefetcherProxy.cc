@@ -171,6 +171,7 @@ RubyPrefetcherProxy::notifyPfHit(const RequestPtr& req, bool is_read,
 
 void
 RubyPrefetcherProxy::notifyPfMiss(const RequestPtr& req, bool is_read,
+                                 const bool coalescing_mshr,
                                  const DataBlock& data_blk)
 {
     assert(ppMiss);
@@ -180,6 +181,7 @@ RubyPrefetcherProxy::notifyPfMiss(const RequestPtr& req, bool is_read,
     // NOTE: for now we only communicate physical address with prefetchers
     pkt.dataStaticConst<uint8_t>(data_blk.getData(getOffset(req->getPaddr()),
                                   pkt.getSize()));
+    pkt.coalescingMSHR = coalescing_mshr;
     DPRINTF(HWPrefetch, "notify miss: %s\n", pkt.print());
     ppMiss->notify(CacheAccessProbeArg(&pkt, *this));
     scheduleNextPrefetch();

@@ -133,6 +133,8 @@ class Base : public ClockedObject
         bool prefetchHit;
         /** The Source Field of Prefetcher */
         PrefetchSourceType pfSrc = PrefetchSourceType::PF_NONE;
+        /** Whether trigger repeat cache miss */
+        bool coalescingMSHR = false;
 
       public:
         /**
@@ -228,12 +230,14 @@ class Base : public ClockedObject
 
         void setPfHit(bool hit) { prefetchHit = hit; }
         void setPfSrc(PrefetchSourceType src) { pfSrc = src; }
+        void setCoalescingMSHR(bool col) { coalescingMSHR = col; }
 
         // TODO: distinguish These two
         bool isPfHit() const { return prefetchHit; }
         bool isPfFirstHit() const { return prefetchHit; }
 
         PrefetchSourceType getPfSrc() const { return pfSrc; }
+        bool getCoalescingMSHR() const { return coalescingMSHR; }
         
         bool isEverPrefetched() const { return isPfHit(); }
 

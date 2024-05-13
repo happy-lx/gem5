@@ -376,6 +376,9 @@ class Packet : public Printable, public Extensible<Packet>
     /// A pointer to the original request.
     RequestPtr req;
 
+    // repeat miss in MHSR
+    bool coalescingMSHR = false;
+
   private:
    /**
     * A pointer to the data being transferred. It can be different

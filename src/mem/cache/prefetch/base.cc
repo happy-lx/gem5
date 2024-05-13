@@ -262,6 +262,7 @@ Base::probeNotify(const CacheAccessProbeArg &acc, bool miss)
         if (useVirtualAddresses && pkt->req->hasVaddr()) {
             PrefetchInfo pfi(pkt, pkt->req->getVaddr(), miss);
             pfi.setPfHit(!miss && has_been_prefetched);
+            pfi.setCoalescingMSHR(pkt->coalescingMSHR);
             if(!miss) {
                 pfi.setPfSrc(cache.getHitBlkPfSrc(pkt->getAddr()));
                 DPRINTF(RubyDebuger, "Notify a Cache Hit, pfSource Field: %d\n",
@@ -274,6 +275,7 @@ Base::probeNotify(const CacheAccessProbeArg &acc, bool miss)
         } else if (!useVirtualAddresses) {
             PrefetchInfo pfi(pkt, pkt->req->getPaddr(), miss);
             pfi.setPfHit(!miss && has_been_prefetched);
+            pfi.setCoalescingMSHR(pkt->coalescingMSHR);
             if(!miss) {
                 pfi.setPfSrc(cache.getHitBlkPfSrc(pkt->getAddr()));
                 DPRINTF(RubyDebuger, "Notify a Cache Hit, pfSource Field: %d\n",
