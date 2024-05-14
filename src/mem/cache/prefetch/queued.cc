@@ -170,12 +170,17 @@ Queued::getMaxPermittedPrefetches(size_t total) const
 }
 
 void
-Queued::notify(const CacheAccessProbeArg &acc, const PrefetchInfo &pfi)
+Queued::notify(const CacheAccessProbeArg &acc, PrefetchInfo &pfi)
 {
     Addr blk_addr = blockAddress(pfi.getAddr());
     bool is_secure = pfi.isSecure();
     const PacketPtr pkt = acc.pkt;
     const CacheAccessor &cache = acc.cache;
+
+    bool late_in_mshr = pkt->coalescingMSHR && (pkt->coalescingMSHRPfSrc != PrefetchSourceType::PF_NONE);  // hit in pf mshr
+    PrefetchSourceType late_mshr_src = pkt->coalescingMSHRPfSrc;
+    bool late_in_pfq = false;  // hit in pf queue
+    PrefetchSourceType late_pfq_src = PrefetchSourceType::PF_NONE;
 
     // Squash queued prefetches if demand miss to same line
     if (queueSquash) {
@@ -187,6 +192,8 @@ Queued::notify(const CacheAccessProbeArg &acc, const PrefetchInfo &pfi)
                         "(cl: %#x), demand request going to the same addr\n",
                         itr->pfInfo.getAddr(),
                         blockAddress(itr->pfInfo.getAddr()));
+                late_in_pfq = true;  // hit in pf queue
+                late_pfq_src = itr->pfSrc;
                 delete itr->pkt;
                 itr = pfq.erase(itr);
                 statsQueued.pfRemovedDemand++;
@@ -195,6 +202,18 @@ Queued::notify(const CacheAccessProbeArg &acc, const PrefetchInfo &pfi)
             }
         }
     }
+
+    PrefetchSourceType late_pf_source = PrefetchSourceType::PF_NONE;
+    if(pfi.isCacheMiss()) {
+        if(late_in_mshr) {
+            late_pf_source = late_mshr_src;
+        }else if(late_in_pfq) {
+            late_pf_source = late_pfq_src;
+        }
+    }
+
+    pfi.setLatePf(pfi.isCacheMiss() && (late_in_mshr || late_in_pfq));
+    pfi.setLatePfSrc(late_pf_source);
 
     // Calculate prefetches given this access
     std::vector<AddrPriority> addresses;

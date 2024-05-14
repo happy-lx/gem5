@@ -135,6 +135,10 @@ class Base : public ClockedObject
         PrefetchSourceType pfSrc = PrefetchSourceType::PF_NONE;
         /** Whether trigger repeat cache miss */
         bool coalescingMSHR = false;
+        /** Whether found a late prefetch */
+        bool latePf = false;
+        /** Which Prefetcher triggers late prefetch */
+        PrefetchSourceType latePfSrc = PrefetchSourceType::PF_NONE;
 
       public:
         /**
@@ -231,6 +235,8 @@ class Base : public ClockedObject
         void setPfHit(bool hit) { prefetchHit = hit; }
         void setPfSrc(PrefetchSourceType src) { pfSrc = src; }
         void setCoalescingMSHR(bool col) { coalescingMSHR = col; }
+        void setLatePf(bool late) { latePf = late; }
+        void setLatePfSrc(PrefetchSourceType src) { latePfSrc = src; }
 
         // TODO: distinguish These two
         bool isPfHit() const { return prefetchHit; }
@@ -238,6 +244,9 @@ class Base : public ClockedObject
 
         PrefetchSourceType getPfSrc() const { return pfSrc; }
         bool getCoalescingMSHR() const { return coalescingMSHR; }
+        bool getLatePf() const { return latePf; }
+        PrefetchSourceType getLatePfSrc() const { return latePfSrc; }
+        PrefetchSourceType getUsefulPfSrc() const { return latePf ? latePfSrc : pfSrc; }
         
         bool isEverPrefetched() const { return isPfHit(); }
 
@@ -422,7 +431,7 @@ class Base : public ClockedObject
      * misses, depending on cache parameters.)
      */
     virtual void
-    notify(const CacheAccessProbeArg &acc, const PrefetchInfo &pfi) = 0;
+    notify(const CacheAccessProbeArg &acc, PrefetchInfo &pfi) = 0;
 
     /** Notify prefetcher of cache fill */
     virtual void notifyFill(const CacheAccessProbeArg &acc)

@@ -3674,7 +3674,7 @@ action(Profile_Miss, desc="") {
 
     // FIXME: this dataBlk is likely to have stale data. This should be fixed
     // if our prefetcher uses cached data to make prefetch decisions.
-    pfProxy.notifyPfMiss(tbe.seqReq, is_read, false, tbe.dataBlk);
+    pfProxy.notifyPfMiss(tbe.seqReq, is_read, false, nullPrefetchSource(), tbe.dataBlk);
   }
 }
 

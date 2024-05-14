@@ -67,7 +67,7 @@ class Multi : public Base
      * notification through their probes-based interface.
      */
     void
-    notify(const CacheAccessProbeArg &arg, const PrefetchInfo &pfi) override
+    notify(const CacheAccessProbeArg &arg, PrefetchInfo &pfi) override
     {};
 
     void notifyFill(const CacheAccessProbeArg &arg) override {};

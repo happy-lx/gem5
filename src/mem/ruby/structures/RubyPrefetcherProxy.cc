@@ -172,6 +172,7 @@ RubyPrefetcherProxy::notifyPfHit(const RequestPtr& req, bool is_read,
 void
 RubyPrefetcherProxy::notifyPfMiss(const RequestPtr& req, bool is_read,
                                  const bool coalescing_mshr,
+                                 const PrefetchSourceType coalescing_src,
                                  const DataBlock& data_blk)
 {
     assert(ppMiss);
@@ -182,6 +183,7 @@ RubyPrefetcherProxy::notifyPfMiss(const RequestPtr& req, bool is_read,
     pkt.dataStaticConst<uint8_t>(data_blk.getData(getOffset(req->getPaddr()),
                                   pkt.getSize()));
     pkt.coalescingMSHR = coalescing_mshr;
+    pkt.coalescingMSHRPfSrc = coalescing_src;
     DPRINTF(HWPrefetch, "notify miss: %s\n", pkt.print());
     ppMiss->notify(CacheAccessProbeArg(&pkt, *this));
     scheduleNextPrefetch();

@@ -224,7 +224,7 @@ class Queued : public Base
     virtual ~Queued();
 
     void
-    notify(const CacheAccessProbeArg &acc, const PrefetchInfo &pfi) override;
+    notify(const CacheAccessProbeArg &acc, PrefetchInfo &pfi) override;
 
     void insert(const PacketPtr &pkt, PrefetchInfo &new_pfi, int32_t priority,
                 PrefetchSourceType src, const CacheAccessor &cache);

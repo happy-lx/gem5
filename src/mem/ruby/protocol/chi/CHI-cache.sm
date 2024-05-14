@@ -674,6 +674,9 @@ machine(MachineType:Cache, "Cache coherency protocol") :
     RequestPtr seqReq,      default="nullptr", desc="Pointer to original request from CPU/sequencer";
     bool isSeqReqValid,     default="false",   desc="Set if seqReq is valid (not nullptr)";
 
+    // late prefetch information
+    bool isFirstCoalescedQuery,     default="true",   desc="Set if the tbe has not been queried by notifyCoalesced function";
+
     // Transaction state information
     State state,    desc="SLICC line state";
 

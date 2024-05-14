@@ -2,6 +2,7 @@
 
 #include "base/stats/group.hh"
 #include "debug/BOPOffsets.hh"
+#include "debug/RubyDebuger.hh"
 #include "debug/XSCompositePrefetcher.hh"
 #include "mem/cache/prefetch/associative_set_impl.hh"
 
@@ -86,6 +87,14 @@ XSCompositePrefetcher::calculatePrefetch(const PrefetchInfo &pfi, std::vector<Ad
     if (!can_prefetch) {
         return;
     }
+
+    assert(!(late && (pf_source == PrefetchSourceType::PF_NONE)));
+    if(late) {
+        DPRINTF(RubyDebuger, "Notify a Late Prefetch, pfSource Field: %d\n",
+                static_cast<int>(pf_source));
+    }
+
+    stats.debugLateNum += (late ? 1 : 0);
 
     Addr pc = pfi.getPC();
     Addr vaddr = pfi.getAddr();
@@ -638,7 +647,8 @@ XSCompositePrefetcher::XSCompositeStats::XSCompositeStats(statistics::Group *par
       ADD_STAT(allCntNum, statistics::units::Count::get(), "victim act access num"),
       ADD_STAT(actMNum, statistics::units::Count::get(), "victim act match num"),
       ADD_STAT(refillNotifyCount, statistics::units::Count::get(), "refill notify count"),
-      ADD_STAT(bopTrainCount, statistics::units::Count::get(), "bop train count")
+      ADD_STAT(bopTrainCount, statistics::units::Count::get(), "bop train count"),
+      ADD_STAT(debugLateNum, statistics::units::Count::get(), "late prefetch num")
 {
 }
 

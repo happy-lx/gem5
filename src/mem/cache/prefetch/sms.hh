@@ -135,6 +135,7 @@ class XSCompositePrefetcher : public Queued
         statistics::Scalar actMNum;
         statistics::Scalar refillNotifyCount;
         statistics::Scalar bopTrainCount;
+        statistics::Scalar debugLateNum;
     } stats;
 
   public:
@@ -143,8 +144,7 @@ class XSCompositePrefetcher : public Queued
     // redirect
     void calculatePrefetch(const PrefetchInfo &pfi, std::vector<AddrPriority> &addresses, const CacheAccessor &cache) override
     {
-        // TODO: Add Pf Late Info
-        this->calculatePrefetch(pfi, addresses, false, pfi.getPfSrc(), pfi.getCoalescingMSHR());
+        this->calculatePrefetch(pfi, addresses, pfi.getLatePf(), pfi.getUsefulPfSrc(), pfi.getCoalescingMSHR());
     };
 
     void calculatePrefetch(const PrefetchInfo &pfi, std::vector<AddrPriority> &addresses, bool late,

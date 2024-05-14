@@ -378,6 +378,7 @@ class Packet : public Printable, public Extensible<Packet>
 
     // repeat miss in MHSR
     bool coalescingMSHR = false;
+    PrefetchSourceType coalescingMSHRPfSrc = PrefetchSourceType::PF_NONE;
 
   private:
    /**

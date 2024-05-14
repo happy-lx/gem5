@@ -364,8 +364,16 @@ void notifyCoalesced(Addr addr, RubyRequestType type, RequestPtr req,
                     (type == RubyRequestType:Load_Linked) ||
                     (type == RubyRequestType:IFETCH);
     if (was_miss) {
-      // TODO: find mshr of this addr, take it's pfSrc
-      pfProxy.notifyPfMiss(req, is_read, true, data_blk);
+      // TODO: find mshr of this addr, take it's pfSrc in the raw request
+      TBE tbe := getCurrentActiveTBE(makeLineAddress(addr));
+      assert(is_valid(tbe));
+      PrefetchSourceType coalesced_pf_source := nullPrefetchSource();
+      
+      if(tbe.isFirstCoalescedQuery) {
+        coalesced_pf_source := getPrefetchSource(tbe.seqReq);
+      }
+      tbe.isFirstCoalescedQuery := false;
+      pfProxy.notifyPfMiss(req, is_read, true, coalesced_pf_source, data_blk);
     } else {
       pfProxy.notifyPfHit(req, is_read, data_blk);
     }
